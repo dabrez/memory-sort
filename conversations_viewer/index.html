@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Conversations</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d1117;
+    --surface1: #161b22;
+    --surface2: #21262d;
+    --surface3: #2d333b;
+    --border:   #30363d;
+    --accent:   #7c3aed;
+    --accent2:  #a855f7;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --human:    #1f6feb;
+    --ai:       #238636;
+    --tag-bg:   rgba(124,58,237,0.15);
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    height: 56px;
+    background: var(--surface1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  .logo {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-icon { font-size: 20px; }
+
+  .stats {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .search-wrap {
+    flex: 1;
+    max-width: 480px;
+    margin-left: auto;
+    position: relative;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+  #search {
+    width: 100%;
+    padding: 7px 12px 7px 34px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+
+  /* ── Main layout ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar (topics) ── */
+  aside {
+    width: 210px;
+    flex-shrink: 0;
+    background: var(--surface1);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 12px 0;
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 4px 16px 8px;
+  }
+
+  .topic-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 7px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: left;
+    gap: 8px;
+    transition: background 0.1s, color 0.1s;
+    border-left: 2px solid transparent;
+  }
+  .topic-btn:hover { background: var(--surface2); color: var(--text); }
+  .topic-btn.active {
+    background: var(--tag-bg);
+    color: var(--accent2);
+    border-left-color: var(--accent);
+    font-weight: 600;
+  }
+  .topic-icon { font-size: 14px; flex-shrink: 0; }
+  .topic-name { flex: 1; }
+  .topic-count {
+    font-size: 11px;
+    background: var(--surface3);
+    border-radius: 10px;
+    padding: 1px 7px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .topic-btn.active .topic-count {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* ── Conversation list panel ── */
+  .conv-panel {
+    width: 320px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .conv-panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface1);
+    flex-shrink: 0;
+  }
+  .conv-panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .conv-panel-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .conv-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .conv-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+  }
+  .conv-item:hover { background: var(--surface2); }
+  .conv-item.active { background: var(--tag-bg); border-left: 2px solid var(--accent); }
+
+  .conv-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .conv-item.active .conv-name { color: var(--accent2); }
+
+  .conv-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .conv-date { font-size: 11px; color: var(--muted); }
+  .conv-msgs {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .conv-preview {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* loading / empty states */
+  .state-msg {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Detail panel ── */
+  .detail-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .detail-header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface1);
+    flex-shrink: 0;
+  }
+  .detail-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .detail-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .detail-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--tag-bg);
+    color: var(--accent2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg {
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .msg.human { align-self: flex-end; align-items: flex-end; }
+  .msg.assistant { align-self: flex-start; align-items: flex-start; }
+
+  .msg-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 4px;
+  }
+  .msg.human .msg-label { color: var(--human); }
+  .msg.assistant .msg-label { color: var(--ai); }
+
+  .msg-bubble {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 100%;
+  }
+  .msg.human .msg-bubble {
+    background: rgba(31,111,235,0.12);
+    border: 1px solid rgba(31,111,235,0.25);
+    border-top-right-radius: 2px;
+  }
+  .msg.assistant .msg-bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-top-left-radius: 2px;
+  }
+
+  .msg-bubble code {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--surface3);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .msg-bubble pre {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 8px 0;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .msg-bubble pre code { background: none; padding: 0; }
+
+  .msg-time {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 0 4px;
+  }
+
+  .attachment-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── Projects panel (inside conversation detail) ── */
+  .projects-bar {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: var(--surface1);
+    padding: 10px 24px 12px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .projects-bar-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .proj-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .proj-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    max-width: 260px;
+    text-decoration: none;
+  }
+  .proj-card:hover { border-color: var(--accent); background: var(--tag-bg); }
+  .proj-card-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent2);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .proj-card-tagline {
+    font-size: 11px;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+  .proj-card-cat {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    padding: 1px 6px;
+    background: var(--surface3);
+    border-radius: 10px;
+    display: inline-block;
+  }
+
+  /* empty / welcome state */
+  .welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    gap: 12px;
+    padding: 40px;
+    text-align: center;
+  }
+  .welcome-icon { font-size: 48px; opacity: 0.4; }
+  .welcome h2 { font-size: 18px; color: var(--text); }
+  .welcome p { font-size: 13px; line-height: 1.6; max-width: 320px; }
+
+  /* scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">💬</span>
+    Claude Conversations
+    <a href="projects.html" style="margin-left:16px;font-size:12px;font-weight:500;color:var(--accent2);text-decoration:none;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.3);padding:3px 10px;border-radius:5px;">🚀 Projects</a>
+  </div>
+  <div class="stats" id="stats">Loading…</div>
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.867-3.834zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+    </svg>
+    <input id="search" type="text" placeholder="Search conversations…" autocomplete="off">
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar">
+    <div class="sidebar-label">Topics</div>
+    <div id="topic-list"></div>
+  </aside>
+
+  <div class="conv-panel">
+    <div class="conv-panel-header">
+      <div class="conv-panel-title" id="panel-title">All Conversations</div>
+      <div class="conv-panel-sub" id="panel-sub"></div>
+    </div>
+    <div class="conv-list" id="conv-list">
+      <div class="state-msg">Select a topic to browse conversations.</div>
+    </div>
+  </div>
+
+  <div class="detail-panel" id="detail-panel">
+    <div class="welcome">
+      <div class="welcome-icon">🗂️</div>
+      <h2>Select a conversation</h2>
+      <p>Choose a topic from the sidebar, then click a conversation to read the full thread.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOPIC_ICONS = {
+  "Finance & Business":        "📈",
+  "AI & Machine Learning":     "🤖",
+  "Programming & Software Dev":"💻",
+  "Technology & Engineering":  "⚙️",
+  "Personal & Career":         "🌱",
+  "Politics & Current Events": "🗳️",
+  "Entertainment & Media":     "🎬",
+  "Education & Academia":      "🎓",
+  "Mathematics":               "📐",
+  "Health & Medicine":         "🏥",
+  "Science & Research":        "🔬",
+  "History & Culture":         "🏛️",
+  "Other":                     "📂",
+};
+
+const TOPIC_FILES = {
+  "Finance & Business":        "topics/finance_business.json",
+  "AI & Machine Learning":     "topics/ai_machine_learning.json",
+  "Programming & Software Dev":"topics/programming_software_dev.json",
+  "Technology & Engineering":  "topics/technology_engineering.json",
+  "Personal & Career":         "topics/personal_career.json",
+  "Politics & Current Events": "topics/politics_current_events.json",
+  "Entertainment & Media":     "topics/entertainment_media.json",
+  "Education & Academia":      "topics/education_academia.json",
+  "Mathematics":               "topics/mathematics.json",
+  "Health & Medicine":         "topics/health_medicine.json",
+  "Science & Research":        "topics/science_research.json",
+  "History & Culture":         "topics/history_culture.json",
+  "Other":                     "topics/other.json",
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let index = null;           // full index.json data
+let activeTopic = null;     // currently selected topic name
+let topicCache = {};        // topic → [full conversation objects]
+let filteredConvs = [];     // currently displayed conversation list
+let activeConvUuid = null;  // currently open conversation
+let searchQuery = "";
+
+// Projects data: name (lowercase) → array of project objects
+let projectsByConvName = {};  // built from both projects.json and projects_all.json
+let allProjectsList = [];     // flat list for the projects page link
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const res = await fetch("index.json");
+    index = await res.json();
+    document.getElementById("stats").textContent =
+      `${index.total.toLocaleString()} conversations · ${index.topics.length} topics`;
+    renderSidebar();
+  } catch (e) {
+    document.getElementById("stats").textContent = "Failed to load index.json";
+    console.error(e);
+  }
+  // Load projects in background (non-blocking)
+  loadProjects();
+}
+
+async function loadProjects() {
+  const byName = {};
+  const addProject = (p) => {
+    for (const src of (p.source_conversations || [])) {
+      const key = src.toLowerCase();
+      if (!byName[key]) byName[key] = [];
+      // Avoid exact duplicates (same id)
+      if (!byName[key].some(x => x.id === p.id)) byName[key].push(p);
+    }
+  };
+
+  // Load grouped (deduplicated) projects
+  try {
+    const gRes = await fetch("projects.json");
+    const grouped = await gRes.json();
+    grouped.forEach(addProject);
+    allProjectsList = grouped;
+  } catch(e) { /* projects.json unavailable */ }
+
+  // Load all projects (including duplicates/variants) from projects_all.json
+  try {
+    const aRes = await fetch("projects_all.json");
+    const all = await aRes.json();
+    all.forEach(addProject);
+  } catch(e) { /* projects_all.json may not exist yet */ }
+
+  projectsByConvName = byName;
+  // Re-render active conversation if one is open, to show newly loaded projects
+  if (activeConvUuid) {
+    for (const topic of Object.values(topicCache)) {
+      const conv = topic.find(c => c.uuid === activeConvUuid);
+      if (conv) { renderDetail(conv); break; }
+    }
+  }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const container = document.getElementById("topic-list");
+  container.innerHTML = "";
+
+  // "All" button
+  const allBtn = makeTopicBtn("All Conversations", "🗂️", index.total, null);
+  container.appendChild(allBtn);
+
+  for (const topic of index.topics) {
+    const count = index.topic_counts[topic];
+    const btn = makeTopicBtn(topic, TOPIC_ICONS[topic] || "📁", count, topic);
+    container.appendChild(btn);
+  }
+}
+
+function makeTopicBtn(label, icon, count, topicKey) {
+  const btn = document.createElement("button");
+  btn.className = "topic-btn";
+  btn.dataset.topic = topicKey || "";
+  btn.innerHTML = `
+    <span class="topic-icon">${icon}</span>
+    <span class="topic-name">${label}</span>
+    <span class="topic-count">${count.toLocaleString()}</span>
+  `;
+  btn.addEventListener("click", () => selectTopic(topicKey));
+  return btn;
+}
+
+function setActiveTopicBtn(topicKey) {
+  document.querySelectorAll(".topic-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.topic === (topicKey || ""));
+  });
+}
+
+// ── Topic selection ────────────────────────────────────────────────────────
+async function selectTopic(topicKey) {
+  activeTopic = topicKey;
+  activeConvUuid = null;
+  setActiveTopicBtn(topicKey);
+
+  const title = topicKey || "All Conversations";
+  document.getElementById("panel-title").textContent = title;
+  document.getElementById("detail-panel").innerHTML = `
+    <div class="welcome">
+      <div class="welcome-icon">🗂️</div>
+      <h2>Select a conversation</h2>
+      <p>Click any conversation in the list to read the full thread.</p>
+    </div>`;
+
+  if (topicKey === null) {
+    // All: use index entries directly (lightweight)
+    filteredConvs = applySearch(index.conversations);
+    renderConvList(filteredConvs, false);
+    return;
+  }
+
+  if (topicCache[topicKey]) {
+    filteredConvs = applySearch(topicCache[topicKey]);
+    renderConvList(filteredConvs, true);
+    return;
+  }
+
+  // Fetch topic file
+  showConvListLoading();
+  try {
+    const file = TOPIC_FILES[topicKey];
+    if (!file) { renderConvList([], true); return; }
+    const res = await fetch(file);
+    topicCache[topicKey] = await res.json();
+    filteredConvs = applySearch(topicCache[topicKey]);
+    renderConvList(filteredConvs, true);
+  } catch (e) {
+    document.getElementById("conv-list").innerHTML =
+      `<div class="state-msg">Failed to load topic data.</div>`;
+  }
+}
+
+function showConvListLoading() {
+  document.getElementById("conv-list").innerHTML =
+    `<div class="state-msg"><div class="spinner"></div>Loading…</div>`;
+}
+
+// ── Conversation list ──────────────────────────────────────────────────────
+function applySearch(convs) {
+  if (!searchQuery) return convs;
+  const q = searchQuery.toLowerCase();
+  return convs.filter(c => (c.name || "").toLowerCase().includes(q) ||
+                            (c.preview || "").toLowerCase().includes(q));
+}
+
+function renderConvList(convs, hasFullData) {
+  const list = document.getElementById("conv-list");
+  const sub  = document.getElementById("panel-sub");
+  sub.textContent = `${convs.length.toLocaleString()} conversation${convs.length !== 1 ? "s" : ""}`;
+
+  if (!convs.length) {
+    list.innerHTML = `<div class="state-msg">No conversations found.</div>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const conv of convs) {
+    const el = document.createElement("div");
+    el.className = "conv-item";
+    el.dataset.uuid = conv.uuid;
+    const preview = conv.preview || "";
+    el.innerHTML = `
+      <div class="conv-name">${escHtml(conv.name || "Untitled")}</div>
+      <div class="conv-meta">
+        <span class="conv-date">${conv.created_at}</span>
+        <span class="conv-msgs">💬 ${conv.message_count}</span>
+      </div>
+      ${preview ? `<div class="conv-preview">${escHtml(preview)}</div>` : ""}
+    `;
+    el.addEventListener("click", () => openConv(conv, hasFullData));
+    frag.appendChild(el);
+  }
+  list.innerHTML = "";
+  list.appendChild(frag);
+}
+
+// ── Open conversation ──────────────────────────────────────────────────────
+async function openConv(conv, hasFullData) {
+  activeConvUuid = conv.uuid;
+  document.querySelectorAll(".conv-item").forEach(el =>
+    el.classList.toggle("active", el.dataset.uuid === conv.uuid));
+
+  if (hasFullData && conv.messages) {
+    renderDetail(conv);
+    return;
+  }
+
+  // Need to load from topic file first
+  const topic = conv.topic || activeTopic;
+  if (!topicCache[topic]) {
+    document.getElementById("detail-panel").innerHTML =
+      `<div class="welcome"><div class="spinner"></div><p>Loading…</p></div>`;
+    const file = TOPIC_FILES[topic];
+    if (file) {
+      try {
+        const res = await fetch(file);
+        topicCache[topic] = await res.json();
+      } catch(e) { return; }
+    }
+  }
+
+  const full = (topicCache[topic] || []).find(c => c.uuid === conv.uuid);
+  if (full) renderDetail(full);
+}
+
+// ── Render conversation thread ─────────────────────────────────────────────
+function renderDetail(conv) {
+  const panel = document.getElementById("detail-panel");
+  const msgCount = conv.messages ? conv.messages.length : 0;
+  const icon = TOPIC_ICONS[conv.topic] || "📁";
+
+  // Look up any project ideas sourced from this conversation
+  const convKey = (conv.name || "").toLowerCase();
+  const relatedProjects = projectsByConvName[convKey] || [];
+
+  let html = `
+    <div class="detail-header">
+      <div class="detail-title">${escHtml(conv.name || "Untitled")}</div>
+      <div class="detail-meta">
+        <span>${conv.created_at}</span>
+        <span>${msgCount} messages</span>
+        <span class="detail-tag">${icon} ${conv.topic || "Other"}</span>
+        ${relatedProjects.length ? `<span class="detail-tag" style="background:rgba(35,134,54,0.15);color:#3fb950;border-color:rgba(35,134,54,0.3);">🚀 ${relatedProjects.length} project idea${relatedProjects.length > 1 ? "s" : ""}</span>` : ""}
+      </div>
+    </div>
+    <div class="messages">
+  `;
+
+  for (const msg of (conv.messages || [])) {
+    const role = msg.sender === "human" ? "human" : "assistant";
+    const label = role === "human" ? "You" : "Claude";
+    const bubbleHtml = formatMsgText(msg.text || "");
+
+    const attachHtml = (msg.attachments || []).filter(a => a.name).map(a =>
+      `<span class="attachment-pill">📎 ${escHtml(a.name)}</span>`
+    ).join(" ");
+
+    html += `
+      <div class="msg ${role}">
+        <div class="msg-label">${label}</div>
+        <div class="msg-bubble">${bubbleHtml}${attachHtml ? "<br>" + attachHtml : ""}</div>
+        <div class="msg-time">${msg.created_at || ""}</div>
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+
+  // Projects panel
+  if (relatedProjects.length) {
+    const cards = relatedProjects.map(p => `
+      <a class="proj-card" href="projects.html#${escHtml(p.id)}" target="_blank" title="${escHtml(p.tagline || '')}">
+        <div class="proj-card-name">${escHtml(p.name)}</div>
+        <div class="proj-card-tagline">${escHtml(p.tagline || p.description || "")}</div>
+        <span class="proj-card-cat">${escHtml(p.category || "Other")}</span>
+      </a>
+    `).join("");
+    html += `
+      <div class="projects-bar">
+        <div class="projects-bar-label">🚀 Project Ideas from this Conversation</div>
+        <div class="proj-cards">${cards}</div>
+      </div>
+    `;
+  }
+
+  panel.innerHTML = html;
+  panel.querySelector(".messages").scrollTop = 0;
+}
+
+// ── Markdown-lite renderer ─────────────────────────────────────────────────
+function formatMsgText(text) {
+  // Escape first, then restore structure
+  let s = escHtml(text);
+
+  // Fenced code blocks
+  s = s.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${code.trimEnd()}</code></pre>`);
+
+  // Inline code
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // Bold
+  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // Italic
+  s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+  // Headers (##, ###)
+  s = s.replace(/^#{1,3} (.+)$/gm, (_, t) => `<strong>${t}</strong>`);
+
+  // Bullet lists (preserve newlines inside bubbles)
+  s = s.replace(/\n/g, "<br>");
+
+  return s;
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────
+document.getElementById("search").addEventListener("input", function() {
+  searchQuery = this.value.trim();
+  if (activeTopic !== undefined) {
+    const source = activeTopic === null
+      ? index.conversations
+      : (topicCache[activeTopic] || []);
+    filteredConvs = applySearch(source);
+    renderConvList(filteredConvs, activeTopic !== null);
+  }
+});
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+init();
+</script>
+</body>
+</html>

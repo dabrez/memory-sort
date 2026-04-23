@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects — Claude Conversations</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d1117;
+    --surface1: #161b22;
+    --surface2: #21262d;
+    --surface3: #2d333b;
+    --border:   #30363d;
+    --accent:   #7c3aed;
+    --accent2:  #a855f7;
+    --green:    #238636;
+    --yellow:   #9a6700;
+    --blue:     #1f6feb;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --tag-bg:   rgba(124,58,237,0.12);
+  }
+
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    height: 56px;
+    background: var(--surface1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 24px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo { font-size: 16px; font-weight: 700; white-space: nowrap; }
+  .logo a { color: var(--muted); text-decoration: none; font-weight: 400; font-size: 13px; }
+  .logo a:hover { color: var(--text); }
+  .logo-sep { color: var(--border); margin: 0 6px; }
+
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .search-wrap { position: relative; }
+  .search-wrap svg {
+    position: absolute; left: 10px; top: 50%;
+    transform: translateY(-50%); color: var(--muted); pointer-events: none;
+  }
+  #search {
+    padding: 7px 12px 7px 34px; width: 260px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 13px; outline: none;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: var(--surface1);
+  }
+  .filter-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+
+  .filter-btn {
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.1s;
+  }
+  .filter-btn:hover { border-color: var(--muted); color: var(--text); }
+  .filter-btn.active { background: var(--tag-bg); border-color: var(--accent); color: var(--accent2); }
+
+  /* View toggle */
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .view-btn {
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.1s;
+    border-right: 1px solid var(--border);
+  }
+  .view-btn:last-child { border-right: none; }
+  .view-btn:hover { background: var(--surface2); color: var(--text); }
+  .view-btn.active { background: var(--accent); color: #fff; }
+
+  .stats-bar { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+  /* ── Layout ── */
+  .main { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── Project list panel ── */
+  .grid-panel {
+    width: 360px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .project-card {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    border-left: 3px solid transparent;
+  }
+  .project-card:hover { background: var(--surface2); }
+  .project-card.active { background: var(--tag-bg); border-left-color: var(--accent); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 5px; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 5px;
+  }
+  .status-dot.idea      { background: var(--muted); }
+  .status-dot.in-progress { background: #f0883e; }
+  .status-dot.existing  { background: var(--green); }
+
+  .card-name {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .project-card.active .card-name { color: var(--accent2); }
+
+  .card-tagline {
+    font-size: 12px; color: var(--muted); margin-top: 2px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  .card-meta { display: flex; align-items: center; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+  .category-tag {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    background: var(--surface3); color: var(--muted); border: 1px solid var(--border);
+  }
+  .status-tag { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+  .status-tag.idea        { background: rgba(139,148,158,0.12); color: var(--muted); border: 1px solid var(--border); }
+  .status-tag.in-progress { background: rgba(240,136,62,0.12); color: #f0883e; border: 1px solid rgba(240,136,62,0.3); }
+  .status-tag.existing    { background: rgba(35,134,54,0.12); color: #3fb950; border: 1px solid rgba(35,134,54,0.3); }
+  .mention-badge {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    background: rgba(124,58,237,0.15); color: var(--accent2); border: 1px solid rgba(124,58,237,0.3);
+  }
+
+  /* ── Detail panel ── */
+  .detail-panel { flex: 1; overflow-y: auto; padding: 28px 32px; }
+
+  .detail-name { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.3; margin-bottom: 6px; }
+  .detail-tagline { font-size: 15px; color: var(--muted); margin-bottom: 16px; }
+  .detail-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+
+  .detail-desc {
+    font-size: 14px; line-height: 1.7; color: #c9d1d9;
+    margin-bottom: 24px; max-width: 720px;
+  }
+
+  .section-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+
+  /* Design write-up box */
+  .design-box {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px 20px;
+    font-size: 13.5px; line-height: 1.75; color: #c9d1d9;
+    word-break: break-word;
+    max-width: 720px; margin-bottom: 24px;
+  }
+  .design-box p { margin-bottom: 10px; }
+  .design-box strong { color: var(--text); }
+
+  /* Tech stack pills */
+  .tech-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }
+  .tech-pill {
+    font-size: 12px; padding: 3px 10px; border-radius: 5px;
+    background: var(--surface3); border: 1px solid var(--border); color: var(--muted);
+  }
+
+  /* Source conversations */
+  .source-convs { display: flex; flex-direction: column; gap: 5px; margin-bottom: 28px; }
+  .source-conv-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--muted);
+  }
+  .source-conv-item::before { content: '💬'; font-size: 12px; }
+
+  /* Claude Code prompt */
+  .prompt-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .copy-btn {
+    display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+    background: var(--accent); border: none; border-radius: 6px;
+    color: #fff; font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .copy-btn:hover { background: var(--accent2); }
+  .copy-btn.copied { background: var(--green); }
+  .prompt-box {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12.5px; line-height: 1.65; color: #c9d1d9;
+    white-space: pre-wrap; word-break: break-word;
+    max-width: 780px; max-height: 400px; overflow-y: auto; margin-bottom: 8px;
+  }
+  .prompt-tip { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  /* Welcome / empty */
+  .welcome {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; color: var(--muted); gap: 12px; text-align: center; padding: 40px;
+  }
+  .welcome-icon { font-size: 48px; opacity: 0.4; }
+  .welcome h2 { font-size: 18px; color: var(--text); }
+  .welcome p { font-size: 13px; line-height: 1.6; max-width: 340px; }
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <a href="index.html">← Conversations</a>
+    <span class="logo-sep">/</span>
+    🚀 Projects
+  </div>
+  <div class="header-right">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.867-3.834zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+      </svg>
+      <input id="search" type="text" placeholder="Search projects…" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<div class="toolbar" id="toolbar">
+  <span class="filter-label">Category:</span>
+  <div id="cat-filters" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+
+  <div class="view-toggle">
+    <button class="view-btn active" id="btn-grouped" onclick="switchView('grouped')">🗂 Grouped</button>
+    <button class="view-btn" id="btn-all" onclick="switchView('all')">📋 All Ideas</button>
+  </div>
+
+  <span class="stats-bar" id="stats"></span>
+</div>
+
+<div class="main">
+  <div class="grid-panel" id="grid">
+    <div class="empty">Loading projects…</div>
+  </div>
+  <div class="detail-panel" id="detail">
+    <div class="welcome">
+      <div class="welcome-icon">🚀</div>
+      <h2>Project Ideas</h2>
+      <p>Every software idea found across your conversations. Toggle between <strong>Grouped</strong> (similar ideas merged) and <strong>All Ideas</strong> (every mention).</p>
+    </div>
+  </div>
+</div>
+
+<script>
+let groupedProjects = [];
+let allProjects = [];
+let activeProjects = [];   // currently displayed list
+let filteredProjects = [];
+let activeId = null;
+let activeCategory = "";
+let searchQuery = "";
+let currentView = "grouped";  // "grouped" | "all"
+
+const STATUS_LABELS = {
+  idea:          "💡 Idea",
+  "in-progress": "🔨 In Progress",
+  existing:      "✅ Live",
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [gRes, aRes] = await Promise.all([
+      fetch("projects.json"),
+      fetch("projects_all.json"),
+    ]);
+    groupedProjects = await gRes.json();
+    // projects_all.json may not exist yet during initial build
+    try { allProjects = await aRes.json(); } catch { allProjects = groupedProjects; }
+    switchView("grouped");
+  } catch(e) {
+    document.getElementById("grid").innerHTML =
+      '<div class="empty">Failed to load projects. Run extract_project_ideas.py first.</div>';
+    console.error(e);
+  }
+}
+
+// ── View switching ────────────────────────────────────────────────────────────
+function switchView(view) {
+  currentView = view;
+  activeId = null;
+  document.getElementById("btn-grouped").classList.toggle("active", view === "grouped");
+  document.getElementById("btn-all").classList.toggle("active", view === "all");
+  activeProjects = view === "grouped" ? groupedProjects : allProjects;
+  document.getElementById("detail").innerHTML = `
+    <div class="welcome">
+      <div class="welcome-icon">🚀</div>
+      <h2>${view === "grouped" ? "Grouped Projects" : "All Project Ideas"}</h2>
+      <p>${view === "grouped"
+        ? "Similar ideas merged into single entries. Sorted by how often each idea appeared."
+        : "Every individual idea extracted from every conversation. Includes all duplicates and variants."}</p>
+    </div>`;
+  buildCategoryFilters();
+  applyFilters();
+  handleHash();
+}
+
+// ── Category filters ──────────────────────────────────────────────────────────
+function getCategories() {
+  return [...new Set(activeProjects.map(p => p.category).filter(Boolean))].sort();
+}
+
+function buildCategoryFilters() {
+  const container = document.getElementById("cat-filters");
+  const allBtn = '<button class="filter-btn active" data-cat="" onclick="setCat(this,\'\')">All</button>';
+  const catBtns = getCategories().map(cat =>
+    `<button class="filter-btn" data-cat="${escHtml(cat)}" onclick="setCat(this,'${escHtml(cat)}')">${escHtml(cat)}</button>`
+  ).join("");
+  container.innerHTML = allBtn + catBtns;
+  activeCategory = "";
+}
+
+function setCat(btn, cat) {
+  activeCategory = cat;
+  document.querySelectorAll("[data-cat]").forEach(b =>
+    b.classList.toggle("active", b.dataset.cat === cat));
+  applyFilters();
+}
+
+// ── Filtering ─────────────────────────────────────────────────────────────────
+function applyFilters() {
+  filteredProjects = activeProjects.filter(p => {
+    if (activeCategory && p.category !== activeCategory) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (p.name || "").toLowerCase().includes(q) ||
+             (p.tagline || "").toLowerCase().includes(q) ||
+             (p.description || "").toLowerCase().includes(q) ||
+             (p.category || "").toLowerCase().includes(q) ||
+             (p.design_writeup || "").toLowerCase().includes(q) ||
+             (p.technologies || []).some(t => t.toLowerCase().includes(q));
+    }
+    return true;
+  });
+  document.getElementById("stats").textContent =
+    `${filteredProjects.length.toLocaleString()} of ${activeProjects.length.toLocaleString()} projects`;
+  renderGrid();
+}
+
+// ── Grid rendering ────────────────────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  if (!filteredProjects.length) {
+    grid.innerHTML = '<div class="empty">No projects match your filters.</div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for (const p of filteredProjects) {
+    const el = document.createElement("div");
+    el.className = "project-card" + (p.id === activeId ? " active" : "");
+    el.dataset.id = p.id;
+    const mentionBadge = p.mention_count > 1
+      ? `<span class="mention-badge">× ${p.mention_count} mentions</span>`
+      : "";
+    el.innerHTML = `
+      <div class="card-top">
+        <div class="status-dot ${p.status || 'idea'}"></div>
+        <div style="min-width:0">
+          <div class="card-name">${escHtml(p.name)}</div>
+          <div class="card-tagline">${escHtml(p.tagline || "")}</div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span class="category-tag">${escHtml(p.category || "Other")}</span>
+        <span class="status-tag ${p.status || 'idea'}">${STATUS_LABELS[p.status] || p.status || "Idea"}</span>
+        ${mentionBadge}
+      </div>
+    `;
+    el.addEventListener("click", () => openProject(p.id));
+    frag.appendChild(el);
+  }
+  grid.innerHTML = "";
+  grid.appendChild(frag);
+}
+
+// ── Open project detail ───────────────────────────────────────────────────────
+function openProject(id) {
+  activeId = id;
+  document.querySelectorAll(".project-card").forEach(el =>
+    el.classList.toggle("active", el.dataset.id === id));
+  const p = activeProjects.find(x => x.id === id);
+  if (!p) return;
+
+  const sources = (p.source_conversations || [p.source_conversation].filter(Boolean))
+    .map(c => `<div class="source-conv-item">${escHtml(c)}</div>`).join("");
+
+  const techs = (p.technologies || []).map(t =>
+    `<span class="tech-pill">${escHtml(t)}</span>`).join("");
+
+  const mentionNote = p.mention_count > 1
+    ? `<span class="mention-badge" style="font-size:12px;padding:3px 10px;">Referenced in ${p.mention_count} ideas/conversations</span>`
+    : "";
+
+  document.getElementById("detail").innerHTML = `
+    <div class="detail-name">${escHtml(p.name)}</div>
+    <div class="detail-tagline">${escHtml(p.tagline || "")}</div>
+    <div class="detail-badges">
+      <span class="category-tag">${escHtml(p.category || "Other")}</span>
+      <span class="status-tag ${p.status || 'idea'}">${STATUS_LABELS[p.status] || "Idea"}</span>
+      ${mentionNote}
+    </div>
+
+    <p class="detail-desc">${escHtml(p.description || "")}</p>
+
+    ${p.design_writeup ? `
+    <div class="section-title">Technical Design</div>
+    <div class="design-box">${formatDesign(p.design_writeup)}</div>
+    ` : ""}
+
+    ${techs ? `
+    <div class="section-title">Technologies</div>
+    <div class="tech-list">${techs}</div>
+    ` : ""}
+
+    ${sources ? `
+    <div class="section-title">Source Conversations</div>
+    <div class="source-convs">${sources}</div>
+    ` : ""}
+
+    <div class="section-title">Claude Code Prompt</div>
+    <div class="prompt-header">
+      <span style="font-size:13px;color:var(--muted);">Paste into Claude Code to start building</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyPrompt('${escHtml(id)}')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/>
+          <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+        </svg>
+        Copy Prompt
+      </button>
+    </div>
+    <div class="prompt-box" id="prompt-text">${escHtml(p.claude_prompt || "")}</div>
+    <div class="prompt-tip">💡 Open Claude Code in your projects directory and paste this to start.</div>
+  `;
+}
+
+function copyPrompt(id) {
+  const p = activeProjects.find(x => x.id === id);
+  if (!p) return;
+  navigator.clipboard.writeText(p.claude_prompt || "").then(() => {
+    const btn = document.getElementById("copy-btn");
+    btn.classList.add("copied");
+    btn.textContent = "✓ Copied!";
+    setTimeout(() => {
+      btn.classList.remove("copied");
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg> Copy Prompt`;
+    }, 2000);
+  });
+}
+
+document.getElementById("search").addEventListener("input", function() {
+  searchQuery = this.value.trim();
+  applyFilters();
+});
+
+function escHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function formatDesign(text) {
+  let s = escHtml(text);
+  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  s = s.replace(/^#{1,3} (.+)$/gm, (_, t) => `<strong>${t}</strong>`);
+  s = s.replace(/\n\n/g, "</p><p>");
+  s = s.replace(/\n/g, "<br>");
+  return `<p>${s}</p>`;
+}
+
+// Open project by ID (used from URL hash)
+function openProjectById(id) {
+  const p = activeProjects.find(x => x.id === id);
+  if (!p) return false;
+  openProject(id);
+  // Scroll card into view
+  const card = document.querySelector(`.project-card[data-id="${CSS.escape(id)}"]`);
+  if (card) card.scrollIntoView({ block: "nearest" });
+  return true;
+}
+
+// Handle hash on load and on hashchange
+function handleHash() {
+  const hash = location.hash.slice(1);
+  if (hash && activeProjects.length) openProjectById(hash);
+}
+window.addEventListener("hashchange", handleHash);
+
+init();
+</script>
+</body>
+</html>
